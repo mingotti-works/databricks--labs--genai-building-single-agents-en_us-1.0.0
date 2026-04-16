@@ -76,7 +76,7 @@
 # COMMAND ----------
 
 # Used when needing to pass catalog/schema name with Python
-catalog_name = <FILL_IN>
+catalog_name = "labuser14506416_1776316285"
 schema_name = "genai_langchain"
 dev_lab_setup(catalog_name, schema_name) # Store the catalog and schema as catalog_name and schema_name
 
@@ -124,7 +124,7 @@ tool_creation(catalog_name, schema_name)
 from unitycatalog.ai.core.databricks import DatabricksFunctionClient
 
 ## Initialize the client for serverless compute
-client = <FILL_IN>
+client = DatabricksFunctionClient(execution_mode="serverless")
 
 # COMMAND ----------
 
@@ -221,8 +221,8 @@ client = <FILL_IN>
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC Test the average fare function with ZIP code 10001
-# MAGIC SELECT <FILL_IN> AS manhattan_avg_fare;
+# MAGIC -- Test the average fare function with ZIP code 10001
+# MAGIC SELECT labuser14506416_1776316285.genai_langchain.avg_fare_by_zip(10001) AS manhattan_avg_fare;
 
 # COMMAND ----------
 
@@ -283,8 +283,8 @@ client = <FILL_IN>
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC Test the long distance trips function with ZIP code 10001 and minimum distance of 10 miles
-# MAGIC SELECT <FILL_IN> AS long_trips_count;
+# MAGIC -- Test the long distance trips function with ZIP code 10001 and minimum distance of 10 miles
+# MAGIC SELECT labuser14506416_1776316285.genai_langchain.cnt_lng_dist_trip(10001,10) AS long_trips_count;
 
 # COMMAND ----------
 
@@ -359,13 +359,13 @@ client = <FILL_IN>
 # COMMAND ----------
 
 tool_list_raw = [
-    <FILL_IN>,
-    <FILL_IN>
+    "avg_fare_by_zip",
+    "cnt_lng_dist_trip"
 ]
 
 function_names = []
 for tool in tool_list_raw:
-    tool = <FILL_IN> + '.' + <FILL_IN> + '.' + tool
+    tool = "labuser14506416_1776316285" + '.' + "genai_langchain" + '.' + tool
     function_names.append(tool)
 
 print(f"Tool list: {function_names}")
@@ -447,8 +447,8 @@ print(f"Tool list: {function_names}")
 from databricks_langchain import UCFunctionToolkit
 
 ## Create a toolkit with the Unity Catalog functions
-toolkit = <FILL_IN>
-tools = <FILL_IN>
+toolkit = UCFunctionToolkit(function_names=function_names)
+tools = toolkit.tools
 
 # COMMAND ----------
 
@@ -521,9 +521,12 @@ tools = <FILL_IN>
 # COMMAND ----------
 
 ## Test the first tool (average fare by pickup ZIP)
-payload1 = <FILL_IN>
+payload1 = {
+    'pickup_zip_code': 10001
+}
+
 payload1_test_result = client.execute_function(
-    function_name=<FILL_IN>,
+    function_name="labuser14506416_1776316285.genai_langchain.avg_fare_by_zip",
     parameters=payload1
 )
 print(payload1_test_result.value)
@@ -592,9 +595,13 @@ print(payload1_test_result.value)
 # COMMAND ----------
 
 ## Test the second tool (count long distance trips)
-payload2 = <FILL_IN>
+payload2 = {
+    'pickup_zip_code': 10001,
+    'min_distance': 10.0
+}
+
 payload2_test_result = client.execute_function(
-    function_name=<FILL_IN>,
+    function_name="labuser14506416_1776316285.genai_langchain.cnt_lng_dist_trip",
     parameters=payload2
 )
 print(payload2_test_result.value)
@@ -684,11 +691,11 @@ import json
 
 ## Load JSON file
 with open("./lab_agent.json", "r") as f:
-    config = <FILL_IN>
+    config = json.load(f)
 
-llm_endpoint = <FILL_IN>
-llm_temperature = <FILL_IN>
-system_prompt = <FILL_IN>
+llm_endpoint = config['llm_endpoint']
+llm_temperature = config['llm_temperature']
+system_prompt = config['system_prompt']
 
 print("Endpoint:", llm_endpoint)
 print("Temperature:", llm_temperature)
@@ -776,7 +783,10 @@ from databricks_langchain import ChatDatabricks
 import mlflow
 
 ## Initialize the language model using ChatDatabricks
-llm_config = <FILL_IN>
+llm_config = ChatDatabricks(
+    endpoint=llm_endpoint,
+    temperature=llm_temperature
+)
 
 # COMMAND ----------
 
@@ -853,10 +863,7 @@ llm_config = <FILL_IN>
 
 prompt_payload = ChatPromptTemplate.from_messages(
     [
-        (
-            <FILL_IN>,
-            <FILL_IN>,
-        ),
+        ("system", system_prompt),
         ("placeholder", "{chat_history}"),
         ("human", "{input}"),
         ("placeholder", "{agent_scratchpad}"),
@@ -938,10 +945,16 @@ prompt_payload = ChatPromptTemplate.from_messages(
 # COMMAND ----------
 
 ## Enable MLflow tracing
-<FILL_IN>
+mlflow.langchain.autolog()
+
+# COMMAND ----------
 
 ## Create the agent configuration
-agent_config = <FILL_IN>
+agent_config =  create_tool_calling_agent(
+    llm_config,
+    tools,
+    prompt_payload
+)
 
 # COMMAND ----------
 
@@ -1017,10 +1030,10 @@ agent_config = <FILL_IN>
 
 # COMMAND ----------
 
-agent_executor = AgentExecutor(agent=<FILL_IN>, tools=<FILL_IN>, verbose=True)
+agent_executor = AgentExecutor(agent=agent_config, tools=tools, verbose=True)
 response = agent_executor.invoke(
     {
-        "input": <FILL_IN>
+        "input": "What's the average fare for trips from ZIP code 10001 and how many trips from that ZIP code are longer than 15 miles?"
     }
 )
 
@@ -1099,7 +1112,7 @@ response = agent_executor.invoke(
 # COMMAND ----------
 
 ## Extract text segments from the response
-output_segments = <FILL_IN>
+output_segments = response['output']
 
 print(output_segments)
 
@@ -1175,7 +1188,7 @@ print(output_segments)
 ## Try a different query
 custom_response = agent_executor.invoke(
     {
-        "input": <FILL_IN>
+        "input": "Can you tell me the average trip costs from the following ZIP codes: 94123, 90210, and 94104?"
     }
 )
 
